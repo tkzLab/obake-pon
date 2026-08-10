@@ -20,6 +20,25 @@ const EDGE_MARGIN = 10;           // プレイエリアの ふちから あけ�
 const MIN_MOVE_RATIO = 0.35;      // まえのいちから さいてい これだけ はなす（たんぺんの ひりつ）
 const SPAWN_RETRY = 12;           // いちの ひきなおし かいすう
 
+// うごき（ふわふわ ただよう）。じかんが たつほど すこしずつ むずかしくする
+//   speed    = 1びょうに すすむ きょり（プレイエリアのはばに たいする ひりつ）
+//   retarget = つぎの めざすところを えらびなおす かんかく（ミリびょう）
+//   turn     = むきを かえる はやさ（おおきいほど きびきび まがる）
+//   bob      = ふわふわ うわしたに ゆれる はば（px）
+const DIFFICULTY_PHASES = [
+  { untilMs: 10000, speed: 0.17, retargetMs: [2600, 3600], turn: 1.4, bob: 10 },
+  { untilMs: 20000, speed: 0.23, retargetMs: [1800, 2600], turn: 2.2, bob: 12 },
+  { untilMs: Infinity, speed: 0.29, retargetMs: [1200, 1800], turn: 3.0, bob: 14 },
+];
+// めざすところへ まっすぐ いかず、ひだり みぎに ゆれながら すすむ（＝ふわふわ）
+const MEANDER_ANGLE = 0.8;        // むきを ゆらす はば（ラジアン。0.8≒46ど）
+const MEANDER_SPEED = 1.25;       // ゆれの はやさ（ラジアン/びょう）
+const BOB_SPEED = 2.2;            // ふわふわの はやさ（ラジアン/びょう）
+const SWAY_RATIO = 0.45;          // よこゆれは たてゆれの これくらい
+const TARGET_REACHED_RATIO = 0.35; // おばけの おおきさの これくらいまで ちかづいたら つぎの めざすところへ
+const TARGET_MIN_MOVE_RATIO = 0.3; // つぎの めざすところは これだけ はなれたところから えらぶ
+const MAX_FRAME_SEC = 0.05;       // タブを もどしたときに ワープさせない ための うわげん
+
 const RESPAWN_DELAY_MS = 260;     // ポン！のあと つぎが でるまで
 const POP_EFFECT_MS = 500;        // ポン！えんしゅつの ながさ（あとしまつの タイミング）
 const POP_STAR_COUNT = 8;
@@ -73,6 +92,9 @@ const game = {
   ghostAlive: false,
   lastPos: null,
   popTimers: new Set(),
+  motion: null,      // うごいている おばけの いち・そくど（下の makeMotion）
+  rafId: null,       // うごきの ループ
+  lastFrame: 0,
 };
 
 /* ============================================================
@@ -147,28 +169,149 @@ function currentGhostSize() {
   return Math.round(Math.min(GHOST_SIZE_MAX, Math.max(GHOST_SIZE_MIN, w * GHOST_SIZE_RATIO)));
 }
 
-// プレイエリアの なかの ランダムないち（がめんがいに でない・まえと おなじばしょに でない）
-function pickPosition(size) {
+// おばけが うごける はんい。プレイエリアは HUD の した にあるので UI とは かさならない
+function fieldBounds(size) {
   const w = playfield.clientWidth;
   const h = playfield.clientHeight;
   const half = size / 2 + GHOST_HIT_PAD;
   const minX = half + EDGE_MARGIN;
-  const maxX = Math.max(minX, w - half - EDGE_MARGIN);
   const minY = half + EDGE_MARGIN;
-  const maxY = Math.max(minY, h - half - EDGE_MARGIN);
-  const minDist = Math.min(w, h) * MIN_MOVE_RATIO;
+  return {
+    minX, minY,
+    maxX: Math.max(minX, w - half - EDGE_MARGIN),
+    maxY: Math.max(minY, h - half - EDGE_MARGIN),
+  };
+}
 
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+// はんいの なかの ランダムな1てん（from から minDist いじょう はなれた ところを えらぶ）
+function randomPointIn(b, from, minDist) {
   let pos = null;
   for (let i = 0; i < SPAWN_RETRY; i++) {
     pos = {
-      x: minX + Math.random() * (maxX - minX),
-      y: minY + Math.random() * (maxY - minY),
+      x: b.minX + Math.random() * (b.maxX - b.minX),
+      y: b.minY + Math.random() * (b.maxY - b.minY),
     };
-    if (!game.lastPos) break;
-    if (Math.hypot(pos.x - game.lastPos.x, pos.y - game.lastPos.y) >= minDist) break;
+    if (!from) break;
+    if (Math.hypot(pos.x - from.x, pos.y - from.y) >= minDist) break;
   }
+  return pos;
+}
+
+// プレイエリアの なかの ランダムないち（がめんがいに でない・まえと おなじばしょに でない）
+function pickPosition(size) {
+  const b = fieldBounds(size);
+  const minDist = Math.min(playfield.clientWidth, playfield.clientHeight) * MIN_MOVE_RATIO;
+  const pos = randomPointIn(b, game.lastPos, minDist);
   game.lastPos = pos;
   return pos;
+}
+
+/* ===== ふわふわ うごく ===== */
+
+// いまの むずかしさ（のこりじかんから きめる）
+function currentPhase() {
+  const elapsed = GAME_DURATION_MS - remainingMs();
+  return DIFFICULTY_PHASES.find(p => elapsed < p.untilMs) || DIFFICULTY_PHASES[DIFFICULTY_PHASES.length - 1];
+}
+
+function makeMotion(pos, size) {
+  return {
+    x: pos.x, y: pos.y,
+    vx: 0, vy: 0,
+    size,
+    clock: 0,          // このおばけが でてからの びょうすう（テストでも おなじように すすむ）
+    seed: Math.random() * Math.PI * 2,   // おばけごとに ゆれの いちを ずらす
+    retargetAt: 0,     // clock が これを こえたら つぎの めざすところへ
+    tx: pos.x, ty: pos.y,
+  };
+}
+
+// つぎに めざすところを えらぶ
+function pickTarget(m, phase) {
+  const b = fieldBounds(m.size);
+  const minDist = Math.min(playfield.clientWidth, playfield.clientHeight) * TARGET_MIN_MOVE_RATIO;
+  const t = randomPointIn(b, { x: m.x, y: m.y }, minDist);
+  m.tx = t.x;
+  m.ty = t.y;
+  const [lo, hi] = phase.retargetMs;
+  m.retargetAt = m.clock + (lo + Math.random() * (hi - lo)) / 1000;
+}
+
+// 1フレームぶん うごかす。dt は びょう
+function updateMotion(dt) {
+  const m = game.motion;
+  if (!m) return;
+  const phase = currentPhase();
+  const b = fieldBounds(m.size);
+  const speed = phase.speed * playfield.clientWidth;
+
+  m.clock += dt;
+
+  // めざすところに ついた／じかんが きた ら つぎへ
+  if (m.clock >= m.retargetAt ||
+      Math.hypot(m.tx - m.x, m.ty - m.y) < m.size * TARGET_REACHED_RATIO) {
+    pickTarget(m, phase);
+  }
+
+  // めざすほうへ すこしずつ むきを かえる（きゅうに まがらない＝ふわふわ）
+  // まっすぐ いかず、すすむ むきを ひだり みぎに ゆらす
+  const dx = m.tx - m.x;
+  const dy = m.ty - m.y;
+  const meander = Math.sin(m.clock * MEANDER_SPEED + m.seed) * MEANDER_ANGLE;
+  const heading = Math.atan2(dy, dx) + meander;
+  const k = Math.min(1, phase.turn * dt);
+  m.vx += (Math.cos(heading) * speed - m.vx) * k;
+  m.vy += (Math.sin(heading) * speed - m.vy) * k;
+
+  m.x += m.vx * dt;
+  m.y += m.vy * dt;
+
+  // ふちに ついたら はねかえして、うちがわの めざすところを とりなおす
+  if (m.x <= b.minX || m.x >= b.maxX) {
+    m.x = clamp(m.x, b.minX, b.maxX);
+    m.vx = -m.vx;
+    pickTarget(m, phase);
+  }
+  if (m.y <= b.minY || m.y >= b.maxY) {
+    m.y = clamp(m.y, b.minY, b.maxY);
+    m.vy = -m.vy;
+    pickTarget(m, phase);
+  }
+
+  renderGhost();
+}
+
+// いちを がめんに はんえいする（ふわふわの ゆれは ここで たす）
+function renderGhost() {
+  const m = game.motion;
+  if (!m || !game.ghostEl) return;
+  const b = fieldBounds(m.size);
+  const bob = Math.sin(m.clock * BOB_SPEED) * currentPhase().bob;
+  const sway = Math.cos(m.clock * BOB_SPEED * 0.7) * currentPhase().bob * SWAY_RATIO;
+  game.lastPos = { x: m.x, y: m.y };
+  game.ghostEl.style.left = clamp(m.x + sway, b.minX, b.maxX) + 'px';
+  game.ghostEl.style.top = clamp(m.y + bob, b.minY, b.maxY) + 'px';
+}
+
+function frame(now) {
+  game.rafId = requestAnimationFrame(frame);
+  const dt = Math.min(MAX_FRAME_SEC, (now - game.lastFrame) / 1000);
+  game.lastFrame = now;
+  if (game.phase !== STATE.PLAYING || !game.ghostEl || dt <= 0) return;
+  updateMotion(dt);
+}
+
+function startMotionLoop() {
+  stopMotionLoop();
+  game.lastFrame = performance.now();
+  game.rafId = requestAnimationFrame(frame);
+}
+
+function stopMotionLoop() {
+  if (game.rafId !== null) cancelAnimationFrame(game.rafId);
+  game.rafId = null;
 }
 
 function spawnGhost() {
@@ -198,6 +341,10 @@ function spawnGhost() {
   playfield.appendChild(btn);
   game.ghostEl = btn;
   game.ghostAlive = true;
+
+  // ふわふわ うごきだす
+  game.motion = makeMotion(pos, size);
+  pickTarget(game.motion, currentPhase());
 }
 
 function removeGhost() {
@@ -206,6 +353,7 @@ function removeGhost() {
     game.ghostEl = null;
   }
   game.ghostAlive = false;
+  game.motion = null;
 }
 
 /* ===== タップ ===== */
@@ -219,6 +367,8 @@ function onGhostHit(e) {
   const x = parseFloat(el.style.left);
   const y = parseFloat(el.style.top);
   const size = parseFloat(el.style.getPropertyValue('--size'));
+  game.lastPos = { x, y };    // つぎの おばけは ここから はなれたところに だす
+  game.motion = null;         // つかまえた おばけは もう うごかない
 
   addScore(1);
   sound.play('pon');
@@ -318,6 +468,7 @@ function stopTimers() {
   clearTimeout(game.respawnId);
   game.tickId = null;
   game.respawnId = null;
+  stopMotionLoop();
 }
 
 /* ============================================================
@@ -347,6 +498,7 @@ function startGame() {
   sound.play('start');
   spawnGhost();
   game.tickId = setInterval(tick, TICK_MS);
+  startMotionLoop();
 }
 
 function endGame() {
@@ -373,17 +525,17 @@ function showResult(score) {
 
 /* ===== がめんサイズが かわったとき（おばけを なかに おさめる） ===== */
 function handleResize() {
-  if (!game.ghostEl || !game.lastPos) return;
+  if (!game.ghostEl || !game.motion) return;
   const size = currentGhostSize();
-  const half = size / 2 + GHOST_HIT_PAD + EDGE_MARGIN;
-  const maxX = Math.max(half, playfield.clientWidth - half);
-  const maxY = Math.max(half, playfield.clientHeight - half);
-  const x = Math.min(Math.max(game.lastPos.x, half), maxX);
-  const y = Math.min(Math.max(game.lastPos.y, half), maxY);
-  game.lastPos = { x, y };
+  const m = game.motion;
+  m.size = size;
+  const b = fieldBounds(size);
+  m.x = clamp(m.x, b.minX, b.maxX);
+  m.y = clamp(m.y, b.minY, b.maxY);
+  m.tx = clamp(m.tx, b.minX, b.maxX);
+  m.ty = clamp(m.ty, b.minY, b.maxY);
   game.ghostEl.style.setProperty('--size', size + 'px');
-  game.ghostEl.style.left = x + 'px';
-  game.ghostEl.style.top = y + 'px';
+  renderGhost();
 }
 
 /* ===== イベント（1かいだけ とうろく） ===== */
@@ -405,4 +557,13 @@ window.__game = {
   hit: () => onGhostHit(null),
   setRemaining: ms => { game.endAt = performance.now() + ms; },
   tick,
+  phases: DIFFICULTY_PHASES,
+  bounds: fieldBounds,
+  currentPhase,
+  // 実時間を待たずに うごきを すすめる（rAF と おなじ けいさんを 固定ステップで まわす）
+  advance: (sec, dt = 1 / 60) => {
+    const steps = Math.round(sec / dt);
+    for (let i = 0; i < steps; i++) updateMotion(dt);
+    return steps;
+  },
 };
