@@ -245,7 +245,8 @@ function updateMotion(dt) {
   if (!m) return;
   const phase = currentPhase();
   const b = fieldBounds(m.size);
-  const speed = phase.speed * playfield.clientWidth;
+  // よこに ひろい がめんで はやくなりすぎないよう、みじかいほうの へん を きじゅんにする
+  const speed = phase.speed * Math.min(playfield.clientWidth, playfield.clientHeight);
 
   m.clock += dt;
 

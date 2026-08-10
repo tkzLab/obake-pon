@@ -30,10 +30,16 @@ html, body {
   background: radial-gradient(120% 70% at 50% 0%, #2b2377 0%, #1a1550 45%, #120e39 100%);
 }
 
-/* 40% よせ = つきが がめんの まんなかに くる */
+/* たてながの え（スマホ・タブレットの たてむき） */
 .forest {
   position: absolute; inset: 0;
-  background: url("images/bg-forest.jpg") 40% bottom / cover no-repeat;
+  background: url("images/bg-forest.jpg") 50% 30% / cover no-repeat;
+}
+
+/* よこに ひろい がめん（PC・よこむき）は よこながの えに して、はば いっぱいに つかう */
+@media (min-aspect-ratio: 1 / 1) {
+  #app { max-width: 1600px; }
+  .forest { background-image: url("images/bg-forest-wide.jpg"); background-position: 50% 45%; }
 }
 
 /* ===== 画面（きょうつう） ===== */
