@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>おばけをポン！</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- 夜の森の背景 -->
+  <div class="scene" aria-hidden="true">
+    <div class="sky"></div>
+    <div class="forest"></div>
+  </div>
+
+  <!-- タイトル画面 -->
+  <section id="title-screen" class="screen overlay" aria-label="タイトル">
+    <h1 class="game-title">おばけを<br>ポン！</h1>
+    <img class="title-ghost" src="images/ghost-normal.png" alt="おばけ">
+    <button type="button" id="start-button" class="big-button start">
+      <span class="big-button-icon">▶</span><span class="big-button-label">スタート</span>
+    </button>
+  </section>
+
+  <!-- ゲーム画面 -->
+  <section id="game-screen" class="screen is-hidden" aria-label="ゲーム">
+    <div class="hud">
+      <div class="hud-item" id="timer-box">
+        <span class="hud-icon">⏰</span>
+        <span class="hud-num" id="time-left">30</span>
+      </div>
+      <div class="hud-item" id="score-box">
+        <span class="hud-icon">⭐</span>
+        <span class="hud-num" id="score">0</span>
+      </div>
+    </div>
+
+    <div class="playfield" id="playfield">
+      <!-- おばけ・ポン！エフェクトは ここに おかれる -->
+    </div>
+  </section>
+
+  <!-- 結果画面 -->
+  <section id="result-screen" class="screen overlay is-hidden" aria-label="けっか">
+    <div class="result-card">
+      <p class="result-praise" id="result-praise">じょうず！</p>
+      <p class="result-count"><span id="result-score">0</span>ひき</p>
+      <p class="result-sub">ポンしたよ！</p>
+      <div class="result-stars" id="result-stars" aria-hidden="true"></div>
+      <button type="button" id="replay-button" class="big-button replay">
+        <span class="big-button-icon">🔄</span><span class="big-button-label">もういちど</span>
+      </button>
+    </div>
+  </section>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

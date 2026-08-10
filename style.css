@@ -1,0 +1,345 @@
+/* ===== きほん ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #0a0820;
+  font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", sans-serif;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.is-hidden { display: none !important; }
+
+/* ===== はいけい（よるのもり） ===== */
+.scene { position: absolute; inset: 0; overflow: hidden; }
+
+.sky {
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 70% at 50% 0%, #2b2377 0%, #1a1550 45%, #120e39 100%);
+}
+
+/* 40% よせ = つきが がめんの まんなかに くる */
+.forest {
+  position: absolute; inset: 0;
+  background: url("images/bg-forest.jpg") 40% bottom / cover no-repeat;
+}
+
+/* ===== 画面（きょうつう） ===== */
+.screen { position: absolute; inset: 0; }
+
+.overlay {
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4vh;
+  padding: calc(16px + env(safe-area-inset-top)) 20px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(9, 7, 32, .55);
+  text-align: center;
+}
+
+/* ===== おおきいボタン ===== */
+.big-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: min(240px, 100%);
+  min-height: 76px;
+  padding: 14px clamp(20px, 6vw, 34px);
+  white-space: nowrap;
+  border: 4px solid rgba(255, 255, 255, .85);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: clamp(26px, 6.4vw, 32px);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .45);
+  cursor: pointer;
+  transition: transform .08s ease;
+}
+
+.big-button-icon { font-size: .85em; }
+.big-button-label { line-height: 1.1; }
+
+.big-button.start {
+  background: linear-gradient(180deg, #ffc93c, #f79a1e);
+  box-shadow: 0 7px 0 #b96a06, 0 0 30px rgba(255, 200, 60, .55);
+}
+
+.big-button.replay {
+  background: linear-gradient(180deg, #e070f0, #a63bd6);
+  box-shadow: 0 7px 0 #6c1f96, 0 0 30px rgba(224, 112, 240, .5);
+}
+
+.big-button:active { transform: translateY(4px); }
+
+@media (hover: hover) and (pointer: fine) {
+  .big-button:hover { filter: brightness(1.08); }
+}
+
+/* ===== タイトル画面 ===== */
+.game-title {
+  font-size: clamp(40px, 13vw, 72px);
+  line-height: 1.15;
+  font-weight: 800;
+  color: #eaffb0;
+  text-shadow:
+    0 0 8px rgba(190, 255, 90, .9),
+    0 0 28px rgba(140, 255, 60, .7),
+    0 5px 0 #2b5c0a;
+}
+
+.title-ghost {
+  width: min(46vw, 230px);
+  height: auto;
+  filter: drop-shadow(0 0 20px rgba(180, 255, 90, .6));
+  animation: float 2.4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-14px) rotate(2deg); }
+}
+
+/* ===== HUD（のこりじかん・スコア） ===== */
+#game-screen { display: flex; flex-direction: column; }
+
+.hud {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+}
+
+.hud-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 108px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(14, 11, 46, .78);
+  border: 3px solid rgba(255, 255, 255, .28);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, .3);
+  transition: transform .12s ease;
+}
+
+.hud-icon { font-size: 24px; line-height: 1; }
+
+.hud-num {
+  font-size: 30px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .6);
+}
+
+/* スコアが ふえたとき すこし おおきくなる */
+#score-box.is-bump { transform: scale(1.18); }
+
+/* のこり5びょうで めだたせる */
+#timer-box.is-hurry {
+  border-color: rgba(255, 180, 90, .9);
+  background: rgba(90, 26, 26, .8);
+}
+
+/* ===== プレイエリア ===== */
+.playfield {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ===== おばけ ===== */
+.ghost {
+  position: absolute;
+  left: 0; top: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  z-index: 2;
+  /* --size = みため / --pad = タップのよゆう（みためより ひとまわり おおきい） */
+  width: calc(var(--size) + var(--pad) * 2);
+  height: calc(var(--size) + var(--pad) * 2);
+  transform: translate(-50%, -50%);
+  -webkit-tap-highlight-color: transparent;
+  animation: ghost-appear .28s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+.ghost img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: var(--pad);
+  pointer-events: none;
+  filter: drop-shadow(0 0 14px rgba(180, 255, 90, .55));
+}
+
+/* ひょこっ！と でてくる */
+@keyframes ghost-appear {
+  0%   { transform: translate(-50%, -50%) scale(.8); opacity: 0; }
+  60%  { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* タップされた おばけ（ポン！して きえる） */
+.ghost.is-popped {
+  pointer-events: none;
+  animation: ghost-pop .34s ease-out forwards;
+}
+
+@keyframes ghost-pop {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; filter: brightness(1); }
+  35%  { transform: translate(-50%, -50%) scale(1.35); opacity: 1; filter: brightness(2.2); }
+  100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; filter: brightness(2.6); }
+}
+
+/* ===== ポン！えんしゅつ ===== */
+.pop {
+  position: absolute;
+  left: 0; top: 0;
+  width: 0; height: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* まんなかの ひかり */
+.pop-flash {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: var(--pop-size); height: var(--pop-size);
+  margin: calc(var(--pop-size) / -2) 0 0 calc(var(--pop-size) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,235,.95) 0%, rgba(255,238,120,.75) 35%, rgba(190,255,90,0) 70%);
+  animation: pop-flash .42s ease-out forwards;
+}
+
+@keyframes pop-flash {
+  0%   { transform: scale(.3); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* ひろがる わ */
+.pop-ring {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: var(--pop-size); height: var(--pop-size);
+  margin: calc(var(--pop-size) / -2) 0 0 calc(var(--pop-size) / -2);
+  border: 6px solid rgba(255, 245, 160, .9);
+  border-radius: 50%;
+  animation: pop-ring .45s ease-out forwards;
+}
+
+@keyframes pop-ring {
+  0%   { transform: scale(.35); opacity: .95; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* とびちる ほし */
+.pop-star {
+  position: absolute;
+  left: 50%; top: 50%;
+  font-size: var(--star-size);
+  line-height: 1;
+  margin: calc(var(--star-size) / -2) 0 0 calc(var(--star-size) / -2);
+  animation: pop-star .5s ease-out forwards;
+}
+
+@keyframes pop-star {
+  0%   { transform: translate(0, 0) scale(.4) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(180deg); opacity: 0; }
+}
+
+/* 「ポン！」の もじ */
+.pop-text {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: var(--text-size);
+  font-weight: 800;
+  color: #fff3a8;
+  white-space: nowrap;
+  text-shadow:
+    0 0 10px rgba(255, 220, 80, .95),
+    0 0 26px rgba(255, 160, 40, .8),
+    0 4px 0 #d8620a;
+  animation: pop-text .5s ease-out forwards;
+}
+
+@keyframes pop-text {
+  0%   { transform: translate(-50%, -50%) scale(.5) rotate(-8deg); opacity: 0; }
+  30%  { transform: translate(-50%, -80%) scale(1.15) rotate(-8deg); opacity: 1; }
+  100% { transform: translate(-50%, -150%) scale(1.15) rotate(-8deg); opacity: 0; }
+}
+
+/* ===== 結果画面 ===== */
+.result-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 30px clamp(20px, 7vw, 34px) 34px;
+  max-width: 100%;
+  border-radius: 34px;
+  border: 5px solid rgba(255, 255, 255, .5);
+  background: linear-gradient(180deg, rgba(38, 26, 96, .96), rgba(20, 14, 58, .96));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+  animation: result-in .35s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+@keyframes result-in {
+  0%   { transform: scale(.75); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.result-praise {
+  font-size: clamp(34px, 9vw, 52px);
+  font-weight: 800;
+  color: #ffe98a;
+  text-shadow: 0 0 18px rgba(255, 210, 70, .8), 0 4px 0 #a2620a;
+}
+
+.result-count {
+  font-size: clamp(44px, 12vw, 68px);
+  font-weight: 800;
+  color: #eaffb0;
+  line-height: 1.1;
+  text-shadow: 0 0 16px rgba(180, 255, 90, .8);
+}
+
+.result-count span { font-variant-numeric: tabular-nums; }
+
+.result-sub {
+  font-size: clamp(22px, 6vw, 30px);
+  font-weight: 800;
+  color: #fff;
+}
+
+.result-stars {
+  font-size: clamp(26px, 7vw, 36px);
+  letter-spacing: 4px;
+  min-height: 1.2em;
+}
+
+.result-card .big-button { margin-top: 10px; }
