@@ -6,6 +6,7 @@
 
 /* ===== ていすう ===== */
 const GHOST_IMAGE = 'images/ghost-normal.png';
+const GHOST_IMAGE_HAPPY = 'images/ghost-happy.png';   // ポンされた しゅんかんの えがお
 
 const GAME_DURATION_MS = 30000;   // 1プレイ 30びょう
 const TICK_MS = 100;              // のこりじかんの ひょうじを ぬりかえる かんかく
@@ -376,6 +377,9 @@ function onGhostHit(e) {
   showPop(x, y, size);
 
   // おばけは えんしゅつのあいだ のこして、さいごに かたづける
+  // ポンされた おばけは えがお に なる（からだ・りんかくは おなじ え なので かたちは かわらない）
+  const face = el.querySelector('img');
+  if (face) face.src = GHOST_IMAGE_HAPPY;
   el.classList.add('is-popped');
   game.ghostEl = null;
   const cleanup = setTimeout(() => {
@@ -549,11 +553,21 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && game.phase === STATE.PLAYING) tick();
 });
 
+// おばけの えを さきに よみこむ。ポンの えんしゅつは 0.4びょう しかないので、
+// そのとき はじめて よみこむと えがおが でるまえに きえてしまう
+const preloaded = [GHOST_IMAGE, GHOST_IMAGE_HAPPY].map(src => {
+  const im = new Image();
+  im.src = src;
+  return im;
+});
+
 showScreen(STATE.TITLE);
 
 /* ===== けんしょう用のフック（work/verify.js から つかう） ===== */
 window.__game = {
   game, STATE, sound,
+  preloaded,
+  images: { normal: GHOST_IMAGE, happy: GHOST_IMAGE_HAPPY },
   spawn: spawnGhost,
   hit: () => onGhostHit(null),
   setRemaining: ms => { game.endAt = performance.now() + ms; },
