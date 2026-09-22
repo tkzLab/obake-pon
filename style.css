@@ -91,6 +91,13 @@ html, body {
   box-shadow: 0 7px 0 #6c1f96, 0 0 30px rgba(224, 112, 240, .5);
 }
 
+.big-button.color-start {
+  min-height: 62px;
+  font-size: clamp(22px, 5.8vw, 28px);
+  background: linear-gradient(180deg, #5cbdff, #4163d8);
+  box-shadow: 0 7px 0 #273c9d, 0 0 30px rgba(92, 189, 255, .48);
+}
+
 .big-button:active { transform: translateY(4px); }
 
 @media (hover: hover) and (pointer: fine) {
@@ -128,12 +135,37 @@ html, body {
   position: relative;
   z-index: 3;
   flex: 0 0 auto;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "timer score"
+    "target target";
   align-items: center;
   gap: 10px;
   padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
 }
+
+.target-box {
+  grid-area: target;
+  justify-self: center;
+  margin: -2px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border: 3px solid rgba(255, 255, 255, .55);
+  border-radius: 999px;
+  background: rgba(14, 11, 46, .84);
+  color: #fff;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, .25);
+  white-space: nowrap;
+}
+
+.target-label { font-size: clamp(14px, 3.6vw, 18px); font-weight: 800; }
+.target-color { font-size: clamp(19px, 5vw, 25px); font-weight: 800; }
+.target-color.is-green { color: #dfff86; }
+.target-color.is-blue { color: #9eeaff; }
+.target-color.is-purple { color: #efb3ff; }
 
 .hud-item {
   display: flex;
@@ -147,6 +179,9 @@ html, body {
   box-shadow: 0 4px 0 rgba(0, 0, 0, .3);
   transition: transform .12s ease;
 }
+
+#timer-box { grid-area: timer; justify-self: start; }
+#score-box { grid-area: score; justify-self: end; }
 
 .hud-icon { font-size: 24px; line-height: 1; }
 
@@ -199,8 +234,12 @@ html, body {
   object-fit: contain;
   padding: var(--pad);
   pointer-events: none;
-  filter: drop-shadow(0 0 14px rgba(180, 255, 90, .55));
+  filter: var(--ghost-filter, none) drop-shadow(0 0 14px var(--ghost-glow, rgba(180, 255, 90, .55)));
 }
+
+.ghost.is-green { --ghost-glow: rgba(180, 255, 90, .55); }
+.ghost.is-blue { --ghost-filter: hue-rotate(128deg) saturate(1.2); --ghost-glow: rgba(100, 210, 255, .62); }
+.ghost.is-purple { --ghost-filter: hue-rotate(205deg) saturate(1.15); --ghost-glow: rgba(230, 130, 255, .62); }
 
 /* ひょこっ！と でてくる */
 @keyframes ghost-appear {

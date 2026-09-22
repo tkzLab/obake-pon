@@ -23,7 +23,10 @@
     <h1 class="game-title">おばけを<br>ポン！</h1>
     <img class="title-ghost" src="images/ghost-normal.png" alt="おばけ">
     <button type="button" id="start-button" class="big-button start">
-      <span class="big-button-icon">▶</span><span class="big-button-label">スタート</span>
+      <span class="big-button-icon">▶</span><span class="big-button-label">ふつうに ポン！</span>
+    </button>
+    <button type="button" id="color-start-button" class="big-button color-start">
+      <span class="big-button-icon">🌈</span><span class="big-button-label">いろを さがそう！</span>
     </button>
   </section>
 
@@ -37,6 +40,10 @@
       <div class="hud-item" id="score-box">
         <span class="hud-icon">⭐</span>
         <span class="hud-num" id="score">0</span>
+      </div>
+      <div class="target-box is-hidden" id="target-box" aria-live="polite">
+        <span class="target-label">このいろを ポン！</span>
+        <span class="target-color" id="target-color">みどり</span>
       </div>
     </div>
 

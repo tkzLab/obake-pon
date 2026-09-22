@@ -66,6 +66,12 @@ const SOUND_FILES = {
 };
 
 const STATE = { TITLE: 'TITLE', PLAYING: 'PLAYING', RESULT: 'RESULT' };
+const MODE = { NORMAL: 'NORMAL', COLOR: 'COLOR' };
+const GHOST_COLORS = [
+  { id: 'green', label: 'みどり' },
+  { id: 'blue', label: 'あお' },
+  { id: 'purple', label: 'むらさき' },
+];
 
 /* ===== DOM ===== */
 const titleScreen = document.getElementById('title-screen');
@@ -77,10 +83,13 @@ const scoreBox = document.getElementById('score-box');
 const timeLeftEl = document.getElementById('time-left');
 const timerBox = document.getElementById('timer-box');
 const startButton = document.getElementById('start-button');
+const colorStartButton = document.getElementById('color-start-button');
 const replayButton = document.getElementById('replay-button');
 const resultPraise = document.getElementById('result-praise');
 const resultScore = document.getElementById('result-score');
 const resultStars = document.getElementById('result-stars');
+const targetBox = document.getElementById('target-box');
+const targetColorEl = document.getElementById('target-color');
 
 /* ===== じょうたい ===== */
 const game = {
@@ -96,6 +105,8 @@ const game = {
   motion: null,      // うごいている おばけの いち・そくど（下の makeMotion）
   rafId: null,       // うごきの ループ
   lastFrame: 0,
+  mode: MODE.NORMAL,
+  targetColor: null,
 };
 
 /* ============================================================
@@ -326,6 +337,11 @@ function spawnGhost() {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'ghost';
+  const color = game.mode === MODE.COLOR
+    ? GHOST_COLORS[Math.floor(Math.random() * GHOST_COLORS.length)]
+    : GHOST_COLORS[0];
+  btn.classList.add(`is-${color.id}`);
+  btn.dataset.color = color.id;
   btn.setAttribute('aria-label', 'おばけ');
   btn.style.setProperty('--size', size + 'px');
   btn.style.setProperty('--pad', GHOST_HIT_PAD + 'px');
@@ -372,7 +388,8 @@ function onGhostHit(e) {
   game.lastPos = { x, y };    // つぎの おばけは ここから はなれたところに だす
   game.motion = null;         // つかまえた おばけは もう うごかない
 
-  addScore(1);
+  // 色ステージでは、ねらった色だけが てんになる。まちがっても へらさない。
+  if (game.mode !== MODE.COLOR || el.dataset.color === game.targetColor) addScore(1);
   sound.play('pon');
   showPop(x, y, size);
 
@@ -487,11 +504,22 @@ function showScreen(phase) {
   resultScreen.classList.toggle('is-hidden', phase !== STATE.RESULT);
 }
 
-function startGame() {
+function setColorTarget() {
+  const color = GHOST_COLORS[Math.floor(Math.random() * GHOST_COLORS.length)];
+  game.targetColor = color.id;
+  targetColorEl.textContent = color.label;
+  targetColorEl.className = `target-color is-${color.id}`;
+}
+
+function startGame(mode = game.mode) {
   stopTimers();          // にじゅう タイマーを つくらない
   clearPopEffects();     // まえの プレイの のこりを けす
 
   game.score = 0;
+  game.mode = mode;
+  if (mode === MODE.COLOR) setColorTarget();
+  else game.targetColor = null;
+  targetBox.classList.toggle('is-hidden', mode !== MODE.COLOR);
   game.lastPos = null;
   scoreEl.textContent = '0';
   scoreBox.classList.remove('is-bump');
@@ -544,7 +572,8 @@ function handleResize() {
 }
 
 /* ===== イベント（1かいだけ とうろく） ===== */
-startButton.addEventListener('click', () => { sound.unlock(); startGame(); });
+startButton.addEventListener('click', () => { sound.unlock(); startGame(MODE.NORMAL); });
+colorStartButton.addEventListener('click', () => { sound.unlock(); startGame(MODE.COLOR); });
 replayButton.addEventListener('click', () => { sound.unlock(); startGame(); });
 window.addEventListener('resize', handleResize);
 
@@ -565,10 +594,12 @@ showScreen(STATE.TITLE);
 
 /* ===== けんしょう用のフック（work/verify.js から つかう） ===== */
 window.__game = {
-  game, STATE, sound,
+  game, STATE, MODE, sound,
   preloaded,
   images: { normal: GHOST_IMAGE, happy: GHOST_IMAGE_HAPPY },
   spawn: spawnGhost,
+  start: startGame,
+  colors: GHOST_COLORS,
   hit: () => onGhostHit(null),
   setRemaining: ms => { game.endAt = performance.now() + ms; },
   tick,
