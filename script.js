@@ -41,6 +41,7 @@ const TARGET_MIN_MOVE_RATIO = 0.3; // つぎの めざすところは これだ�
 const MAX_FRAME_SEC = 0.05;       // タブを もどしたときに ワープさせない ための うわげん
 
 const RESPAWN_DELAY_MS = 260;     // ポン！のあと つぎが でるまで
+const COLOR_AUTO_CHANGE_MS = 1500; // いろステージで おばけを かえる かんかく
 const POP_EFFECT_MS = 500;        // ポン！えんしゅつの ながさ（あとしまつの タイミング）
 const POP_STAR_COUNT = 8;
 const POP_STARS = ['⭐', '✨', '💫', '🌟'];
@@ -98,6 +99,7 @@ const game = {
   endAt: 0,          // ゲームが おわる じこく（performance.now ベース）
   tickId: null,      // のこりじかんの こうしん
   respawnId: null,   // つぎの おばけを だす タイマー
+  colorChangeId: null, // いろステージで じどうで つぎへ すすむ タイマー
   ghostEl: null,
   ghostAlive: false,
   lastPos: null,
@@ -105,6 +107,7 @@ const game = {
   motion: null,      // うごいている おばけの いち・そくど（下の makeMotion）
   rafId: null,       // うごきの ループ
   lastFrame: 0,
+  spawnCount: 0,
   mode: MODE.NORMAL,
   targetColor: null,
 };
@@ -342,6 +345,7 @@ function spawnGhost() {
     : GHOST_COLORS[0];
   btn.classList.add(`is-${color.id}`);
   btn.dataset.color = color.id;
+  btn.dataset.spawnId = String(++game.spawnCount);
   btn.setAttribute('aria-label', 'おばけ');
   btn.style.setProperty('--size', size + 'px');
   btn.style.setProperty('--pad', GHOST_HIT_PAD + 'px');
@@ -363,6 +367,17 @@ function spawnGhost() {
   // ふわふわ うごきだす
   game.motion = makeMotion(pos, size);
   pickTarget(game.motion, currentPhase());
+
+  // いろを さがそうでは、ちがう色を押さなくても つぎの色がくる。
+  // 目標の色はこのプレイのあいだ変えないので、待って見つけられる。
+  clearTimeout(game.colorChangeId);
+  game.colorChangeId = null;
+  if (game.mode === MODE.COLOR) {
+    game.colorChangeId = setTimeout(() => {
+      game.colorChangeId = null;
+      spawnGhost();
+    }, COLOR_AUTO_CHANGE_MS);
+  }
 }
 
 function removeGhost() {
@@ -380,6 +395,8 @@ function onGhostHit(e) {
   // PLAYING いがい／すでに ポンされた おばけ は かぞえない（れんだ・にじゅうタップ よけ）
   if (game.phase !== STATE.PLAYING || !game.ghostAlive) return;
   game.ghostAlive = false;
+  clearTimeout(game.colorChangeId);
+  game.colorChangeId = null;
 
   const el = game.ghostEl;
   const x = parseFloat(el.style.left);
@@ -488,8 +505,10 @@ function tick() {
 function stopTimers() {
   clearInterval(game.tickId);
   clearTimeout(game.respawnId);
+  clearTimeout(game.colorChangeId);
   game.tickId = null;
   game.respawnId = null;
+  game.colorChangeId = null;
   stopMotionLoop();
 }
 
@@ -600,6 +619,7 @@ window.__game = {
   spawn: spawnGhost,
   start: startGame,
   colors: GHOST_COLORS,
+  colorChangeMs: COLOR_AUTO_CHANGE_MS,
   hit: () => onGhostHit(null),
   setRemaining: ms => { game.endAt = performance.now() + ms; },
   tick,
